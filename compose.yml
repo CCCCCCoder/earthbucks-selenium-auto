@@ -1,0 +1,59 @@
+# To execute this docker-compose yml file use `docker-compose -f docker-compose-v3.yml up`
+# Add the `-d` flag at the end for detached execution
+# To stop the execution, hit Ctrl+C, and then `docker-compose -f docker-compose-v3.yml down`
+services:
+  chrome:
+    image: selenium/node-chrome:latest
+    shm_size: 2gb
+    depends_on:
+      - selenium-hub
+    environment:
+      - SE_EVENT_BUS_HOST=selen-hub
+      - SE_EVENT_BUS_PUBLISH_PORT=4442
+      - SE_EVENT_BUS_SUBSCRIBE_PORT=4443
+      - SE_NODE_MAX_SESSIONS=4 # Maximum parallel sessions
+      - SE_NODE_OVERRIDE_MAX_SESSIONS=true
+      - SE_NODE_SESSION_TIMEOUT=300 # Session timeout in seconds
+      - JAVA_OPTS=-Xmx4096m # Max Java heap size
+      - SCREEN_WIDTH=1920
+      - SCREEN_HEIGHT=1080
+      - SCREEN_DEPTH=24
+      # Chrome specific options
+      # - SE_OPTS=--disable-dev-shm-usage --no-sandbox
+    networks:
+      - my-grid
+    ports:
+      - "5900:5900"
+      - "7900:7900"
+    privileged: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+  selenium-hub:
+    image: selenium/hub:latest
+    container_name: selen-hub
+    ports:
+      - "4442:4442"
+      - "4443:4443"
+      - "4444:4444"
+    networks:
+      - my-grid
+  miner:
+    build: .
+    depends_on:
+      - selenium-hub
+      - chrome
+    environment:
+      - PUBLIC_KEY=your-PUBLIC_KEY
+      - PRIVATE_KEY=your-PRIVATE_KEY
+      - SELENIUM_URL=http://selenium-hub:4444/wd/hub
+    networks:
+      - my-grid
+    restart: unless-stopped
+
+networks:
+  my-grid:
